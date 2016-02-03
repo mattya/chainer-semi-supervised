@@ -66,10 +66,10 @@ class Ladder_backward(chainer.Chain):
         else:
             h = self.lin(x)
         mu = F.sum(h, axis=0)/h.data.shape[0]
-        vr = (F.sum(h*h, axis=0)/h.data.shape[0])**0.5
         self.mu = F.broadcast(F.reshape(mu, (1,h.data.shape[1])),h)[0]
+        vr = (F.sum((h-self.mu)*(h-self.mu), axis=0)/h.data.shape[0])**0.5
         self.vr = F.broadcast(F.reshape(vr, (1,h.data.shape[1])),h)[0]
-        bnh = (h-self.mu)/(self.vr+1e-10)
+        bnh = (h-self.mu)/(self.vr+1e-7)
         return self.comb(bnh, z)
 
 
@@ -86,10 +86,10 @@ class Ladder_forward(chainer.Chain):
     def __call__(self, x, eta, test=False):
         h = self.lin(x)
         mu = F.sum(h, axis=0)/h.data.shape[0]
-        vr = (F.sum(h*h, axis=0)/h.data.shape[0])**0.5
         self.mu = F.broadcast(F.reshape(mu, (1,h.data.shape[1])),h)[0]
+        vr = (F.sum((h-self.mu)*(h-self.mu), axis=0)/h.data.shape[0])**0.5
         self.vr = F.broadcast(F.reshape(vr, (1,h.data.shape[1])),h)[0]
-        bnh = (h-self.mu)/(self.vr+1e-10)
+        bnh = (h-self.mu)/(self.vr+1e-7)
         z = bnh + xp.random.randn(x.data.shape[0], self.n_out)*eta
         if self.act is None:
             return z, F.broadcast(self.gamma.W, z)[0]*(z + F.broadcast(self.beta.W, z)[0])

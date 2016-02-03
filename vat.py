@@ -47,14 +47,18 @@ class KL_multinomial(chainer.function.Function):
     # backward only q-side
     def backward_gpu(self, inputs, grads):
         p, q = inputs
-        return cuda.cupy.zeros_like(p), -np.float32(1.0)*p/(np.float32(1e-8)+q)/np.float32(p.shape[0])
+        dq = -np.float32(1.0) * p / (np.float32(1e-8) + q) / np.float32(p.shape[0]) * grads[0]
+        return cuda.cupy.zeros_like(p), dq
+
+def kl(p,q):
+    return KL_multinomial()(F.softmax(p),F.softmax(q))
 
 def kl(p,q):
     return KL_multinomial()(p,q)
 
 def distance(y0, y1):
     return kl(F.softmax(y0), F.softmax(y1))
-
+    
 def vat(forward, distance, x, xi=10, eps=1.4, Ip=1):
     y = forward(Variable(x))
     y.unchain_backward()
@@ -62,14 +66,13 @@ def vat(forward, distance, x, xi=10, eps=1.4, Ip=1):
     # calc adversarial direction
     d = xp.random.normal(size=x.shape, dtype=np.float32)
     d = d/xp.sqrt(xp.sum(d**2, axis=1)).reshape((x.shape[0],1))
-    d_var = Variable(d.astype(np.float32))
     for ip in range(Ip):
+        d_var = Variable(d.astype(np.float32))
         y2 = forward(x+xi*d_var)
         kl_loss = distance(y, y2)
         kl_loss.backward()
         d = d_var.grad
-        d_var = Variable(d.astype(np.float32))
-    d = d/xp.sqrt(xp.sum(d**2, axis=1)).reshape((x.shape[0],1))
+        d = d/xp.sqrt(xp.sum(d**2, axis=1)).reshape((x.shape[0],1))
     d_var = Variable(d.astype(np.float32))
 
     # calc regularization
